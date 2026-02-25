@@ -275,6 +275,10 @@
                             <ui:CardExpander Margin="0,8,0,0" IsExpanded="False" Header="Custom UI Mods">
                                 <StackPanel>
 
+                                    <controls:OptionControl Header="Enable Overlay" Description="Enables the Overlay Mods to work over Roblox.">
+                                        <ui:ToggleSwitch IsChecked="{Binding OverlaysEnabled, Mode=TwoWay}" />
+                                    </controls:OptionControl>
+
                                     <controls:OptionControl Header="Windows FPS Counter" Description="Displays your computer's FPS.">
                                         <ui:ToggleSwitch IsChecked="{Binding FPSCounter, Mode=TwoWay}" />
                                     </controls:OptionControl>
@@ -283,10 +287,24 @@
                                         <ui:ToggleSwitch IsChecked="{Binding CurrentTimeDisplay, Mode=TwoWay}" />
                                     </controls:OptionControl>
 
-                                    <controls:OptionControl Header="Server Ping" Description="Displays your Servers Ping (Ms)">
-                                        <ui:ToggleSwitch IsChecked="{Binding ServerPingDisplay, Mode=TwoWay}" />
-                                    </controls:OptionControl>
+                                    <controls:OptionControl Header="Brightness" 
+                        Description="Adjust the screen brightness level">
 
+                                        <StackPanel>
+                                            <Slider Minimum="0"
+                Maximum="100"
+                Value="{Binding Brightness, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                TickFrequency="5"
+                IsSnapToTickEnabled="True"/>
+
+                                            <TextBlock Grid.Column="1"
+           VerticalAlignment="Center"
+           HorizontalAlignment="Right"
+           Text="{Binding BrightnessDisplay}"/>
+                                        </StackPanel>
+
+                                    </controls:OptionControl>
+                                    
                                     <controls:OptionControl 
     Header="Lighting Changer (BETA)" 
 Description="Adds a Experimental overlay-based lighting changer. Customize your Roblox lighting."
@@ -762,6 +780,7 @@ Description="Adds a Experimental overlay-based lighting changer. Customize your 
 
                 </StackPanel>
             </TabItem>
+
         </TabControl>
     </StackPanel>
 </ui:UiPage>

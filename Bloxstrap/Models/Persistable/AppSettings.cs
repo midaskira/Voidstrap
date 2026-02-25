@@ -110,6 +110,10 @@ namespace Voidstrap.Models.Persistable
         public bool MultiAccount { get; set; } = false;
         public bool ShowServerDetails { get; set; } = true;
 
+        public bool OverlaysEnabled { get; set; } = false;
+
+        public double Brightness { get; set; } = 50;
+
         // Mod Settings
         public string CustomFontLocation { get; set; } = string.Empty;
         public CursorType CursorType { get; set; } = CursorType.Default;

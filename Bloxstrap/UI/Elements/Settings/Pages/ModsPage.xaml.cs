@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -34,6 +35,14 @@ namespace Voidstrap.UI.Elements.Settings.Pages
             SetupViewModel();
             InitializeComponent();
             InitializePreview();
+
+            ViewModel = new ModsViewModel();
+            DataContext = ViewModel;
+
+            Loaded += async (s, e) =>
+            {
+                await ViewModel.InitializeAsync();
+            };
 
             GradientAngleTextBox.Text = "0.0";
             IncludeModificationsCheckBox.IsChecked = true;
@@ -881,5 +890,20 @@ namespace Voidstrap.UI.Elements.Settings.Pages
             }
         }
         #endregion
+    }
+
+    public class ModInfo
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string ImageUrl { get; set; }
+        public string FolderPath { get; set; }
+    }
+    public class GitHubContent
+    {
+        public string Name { get; set; }
+        public string Path { get; set; }
+        public string Type { get; set; }
+        public string Download_Url { get; set; }
     }
 }

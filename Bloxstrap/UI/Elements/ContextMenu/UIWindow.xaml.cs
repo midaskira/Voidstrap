@@ -34,6 +34,13 @@ namespace Voidstrap.UI.Elements.Overlay
         private readonly bool _showTime = App.Settings.Prop.CurrentTimeDisplay;
         private readonly bool _showLocation = App.Settings.Prop.ShowServerDetailsUI;
 
+        private const double DefaultBrightness = 50;
+        private double _brightness = App.Settings.Prop.Brightness;
+        private double _lastAppliedBrightness = App.Settings.Prop.Brightness;
+
+        private Border _darkOverlay;
+        private Border _brightOverlay;
+
         private string _serverIp;
         private string _lastServerIp;
         private bool _locationFetching;
@@ -61,19 +68,40 @@ namespace Voidstrap.UI.Elements.Overlay
 
         public OverlayWindow()
         {
-            Width = 260;
-            Height = 140;
+            Width = SystemParameters.PrimaryScreenWidth;
+            Height = SystemParameters.PrimaryScreenHeight;
 
-            Left = SystemParameters.PrimaryScreenWidth - Width - -95;
-            Top = 10;
+            Left = 0;
+            Top = 0;
 
             AllowsTransparency = true;
-            Background = null;
+            Background = Brushes.Transparent;
             WindowStyle = WindowStyle.None;
             Topmost = true;
             ShowInTaskbar = false;
 
-            var panel = new StackPanel { Orientation = Orientation.Vertical };
+            var root = new Grid();
+
+            _darkOverlay = new Border
+            {
+                Background = Brushes.Black,
+                Opacity = 0
+            };
+            // fakass method to make black and white work ( dont do this shit at home ah )
+            _brightOverlay = new Border
+            {
+                Background = Brushes.White,
+                Opacity = 0
+            };
+
+            root.Children.Add(_darkOverlay);
+            root.Children.Add(_brightOverlay);
+
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Margin = new Thickness(SystemParameters.PrimaryScreenWidth - 260 - -95, 10, 0, 0)
+            };
 
             if (_showFPS)
             {
@@ -100,7 +128,8 @@ namespace Voidstrap.UI.Elements.Overlay
                 panel.Children.Add(_timeTextBlock);
             }
 
-            Content = panel;
+            root.Children.Add(panel);
+            Content = root;
 
             CompositionTarget.Rendering += OnRendering;
 
@@ -111,8 +140,52 @@ namespace Voidstrap.UI.Elements.Overlay
             _updateTimer.Tick += async (_, __) => await UpdateStatsAsync();
             _updateTimer.Start();
 
-            Loaded += (_, __) => MakeClickThrough();
+            Loaded += (_, __) =>
+            {
+                MakeClickThrough();
+                ApplyBrightness();
+            };
+
             Closing += (_, __) => CompositionTarget.Rendering -= OnRendering;
+        }
+
+        public double Brightness
+        {
+            get => _brightness;
+            set
+            {
+                double clamped = Math.Clamp(value, 0, 100);
+                if (_brightness != clamped)
+                {
+                    _brightness = clamped;
+                    App.Settings.Prop.Brightness = clamped;
+                    ApplyBrightness();
+                    OnPropertyChanged(nameof(Brightness));
+                }
+            }
+        }
+
+        private void ApplyBrightness()
+        {
+            if (_brightness == DefaultBrightness)
+            {
+                _darkOverlay.Opacity = 0;
+                _brightOverlay.Opacity = 0;
+                return;
+            }
+
+            if (_brightness < DefaultBrightness)
+            {
+                double percent = (DefaultBrightness - _brightness) / DefaultBrightness;
+                _darkOverlay.Opacity = percent;
+                _brightOverlay.Opacity = 0;
+            }
+            else
+            {
+                double percent = (_brightness - DefaultBrightness) / DefaultBrightness;
+                _brightOverlay.Opacity = percent;
+                _darkOverlay.Opacity = 0;
+            }
         }
 
         private void OnRendering(object sender, EventArgs e)
@@ -127,6 +200,12 @@ namespace Voidstrap.UI.Elements.Overlay
                     _fpsStopwatch.Restart();
                     _fpsTextBlock.Text = $"FPS: {_fps}";
                 }
+            }
+
+            if (Math.Abs(App.Settings.Prop.Brightness - _lastAppliedBrightness) > 0.01)
+            {
+                _lastAppliedBrightness = App.Settings.Prop.Brightness;
+                Brightness = _lastAppliedBrightness;
             }
 
             if (!IsRobloxForeground())
@@ -144,8 +223,7 @@ namespace Voidstrap.UI.Elements.Overlay
             if (_showTime)
                 _timeTextBlock.Text = DateTime.Now.ToString("h:mm tt");
 
-            if (!_showPing)
-                return;
+            if (!_showPing) return;
 
             _serverIp = GetRobloxServerIp();
 
@@ -188,10 +266,7 @@ namespace Voidstrap.UI.Elements.Overlay
                         !IPAddress.IsLoopback(c.RemoteEndPoint.Address))
                     ?.RemoteEndPoint.Address.ToString();
             }
-            catch
-            {
-                return null;
-            }
+            catch { return null; }
         }
 
         private async Task<int> PingServerAsync(string ip)
@@ -202,10 +277,7 @@ namespace Voidstrap.UI.Elements.Overlay
                 var reply = await ping.SendPingAsync(ip, 1000);
                 return reply.Status == IPStatus.Success ? (int)reply.RoundtripTime : -1;
             }
-            catch
-            {
-                return -1;
-            }
+            catch { return -1; }
         }
 
         private async Task<string> GetServerLocationAsync(string ip)
@@ -213,8 +285,7 @@ namespace Voidstrap.UI.Elements.Overlay
             try
             {
                 using var res = await Http.GetAsync($"https://ipinfo.io/{ip}/json");
-                if (!res.IsSuccessStatusCode)
-                    return "Location: Unknown";
+                if (!res.IsSuccessStatusCode) return "Location: Unknown";
 
                 string json = await res.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(json);
@@ -227,17 +298,12 @@ namespace Voidstrap.UI.Elements.Overlay
                     ? $"Location: {city} {CountryToFlag(country)}"
                     : "Location: Unknown";
             }
-            catch
-            {
-                return "Location: Unknown";
-            }
+            catch { return "Location: Unknown"; }
         }
 
         private static string CountryToFlag(string cc)
         {
-            if (string.IsNullOrEmpty(cc) || cc.Length != 2)
-                return "";
-
+            if (string.IsNullOrEmpty(cc) || cc.Length != 2) return "";
             int offset = 0x1F1E6;
             return char.ConvertFromUtf32(offset + cc[0] - 'A') +
                    char.ConvertFromUtf32(offset + cc[1] - 'A');
@@ -267,10 +333,7 @@ namespace Voidstrap.UI.Elements.Overlay
                 return Process.GetProcessById((int)pid)
                     .ProcessName.Equals("RobloxPlayerBeta", StringComparison.OrdinalIgnoreCase);
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
@@ -279,5 +342,7 @@ namespace Voidstrap.UI.Elements.Overlay
         [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
         public event PropertyChangedEventHandler PropertyChanged;
+        protected void OnPropertyChanged(string name)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

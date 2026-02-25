@@ -14,6 +14,7 @@ using System.Windows.Threading;
 using System.Xml.Linq;
 using Voidstrap;
 using Voidstrap.AppData;
+using Voidstrap.UI.Elements.Settings.Pages;
 using Voidstrap.UI.ViewModels;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -24,6 +25,15 @@ namespace Voidstrap.UI.ViewModels.Settings
 {
     public class ModsViewModel : NotifyPropertyChangedViewModel
     {
+        private const string GitHubApiBase = "https://api.github.com/repos/KloBraticc/ModsHub-Reworked-/contents"; // fuckass
+        public ObservableCollection<ModInfo> AvailableMods { get; set; }
+        = new ObservableCollection<ModInfo>();
+
+        public string BrightnessDisplay =>
+        Brightness == 50
+        ? "(Disabled)"
+        : $"{Brightness:0}%";
+
         public ICommand PickCursorColorCommand { get; }
         public ICommand PickOutlineColorCommand { get; }
         public ICommand GenerateCursorCodeCommand { get; }
@@ -64,6 +74,50 @@ namespace Voidstrap.UI.ViewModels.Settings
 
             OnPropertyChanged(nameof(ChooseCustomFontVisibility));
             OnPropertyChanged(nameof(DeleteCustomFontVisibility));
+        }
+
+        public async Task LoadModsAsync() // was working on this but idk fuc
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("VoidstrapApp");
+
+            var json = await http.GetStringAsync(GitHubApiBase);
+            var items = JsonSerializer.Deserialize<List<GitHubContent>>(json);
+
+            var mods = new List<ModInfo>();
+
+            foreach (var item in items)
+            {
+                if (item.Type == "dir")
+                {
+                    var mod = new ModInfo
+                    {
+                        Name = item.Name,
+                        FolderPath = item.Path
+                    };
+
+                    mod.ImageUrl = await GetPreviewImageUrl(item.Path, http);
+
+                    mods.Add(mod);
+                }
+            }
+
+            AvailableMods = new ObservableCollection<ModInfo>(mods);
+        }
+
+        private async Task<string> GetPreviewImageUrl(string folder, HttpClient http)
+        {
+            string[] extensions = { "png", "jpg", "jpeg" };
+
+            foreach (var ext in extensions)
+            {
+                string rawUrl = $"https://raw.githubusercontent.com/KloBraticc/ModsHub-Reworked-/main/{folder}/Preview.{ext}";
+                var response = await http.GetAsync(rawUrl);
+                if (response.IsSuccessStatusCode)
+                    return rawUrl;
+            }
+
+            return null;
         }
 
         public ObservableCollection<SkyboxPack> AvailableSkyboxPacks { get; } = new();
@@ -228,10 +282,27 @@ namespace Voidstrap.UI.ViewModels.Settings
             set => App.Settings.Prop.SkyBoxDataSending = value;
         }
 
-        public bool ServerPingDisplay
+        public bool OverlaysEnabled
         {
-            get => App.Settings.Prop.ServerPingCounter;
-            set => App.Settings.Prop.ServerPingCounter = value;
+            get => App.Settings.Prop.OverlaysEnabled;
+            set => App.Settings.Prop.OverlaysEnabled = value;
+        }
+
+        public double Brightness
+        {
+            get => App.Settings.Prop.Brightness;
+            set
+            {
+                double clamped = Math.Clamp(value, 0, 100);
+
+                if (App.Settings.Prop.Brightness != clamped)
+                {
+                    App.Settings.Prop.Brightness = clamped;
+
+                    OnPropertyChanged(nameof(Brightness));
+                    OnPropertyChanged(nameof(BrightnessDisplay));
+                }
+            }
         }
 
         public bool ServerDetailsDisplay
@@ -552,10 +623,16 @@ namespace Voidstrap.UI.ViewModels.Settings
             System.Windows.Application.Current.Dispatcher.BeginInvoke(
                 DispatcherPriority.Loaded,
                 new Action(UpdatePreview));
+
             _ = LoadSkyboxPacksFromGithub();
             LoadCustomCursorSets();
             LoadCursorPathsForSelectedSet();
             NotifyCursorVisibilities();
+        }
+
+        public async Task InitializeAsync()
+        {
+            await LoadModsAsync();
         }
 
         public enum CrosshairShape

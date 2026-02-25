@@ -349,6 +349,39 @@
                 </MenuItem.Header>
             </MenuItem>
 
+            <MenuItem x:Name="BrightnessTrackerLog" Visibility="Collapsed">
+                <MenuItem.Header>
+                    <StackPanel>
+                        <TextBlock Text="Brightness"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,4"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Slider Grid.Column="0"
+                        Minimum="0"
+                        Maximum="100"
+                        Value="{Binding Brightness, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        TickFrequency="5"
+                        IsSnapToTickEnabled="True"
+                        VerticalAlignment="Center"
+                        Focusable="True"/>
+
+                            <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Right"
+                           Text="{Binding BrightnessDisplay}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                </MenuItem.Header>
+            </MenuItem>
+
         </ContextMenu>
     </ui:UiWindow.ContextMenu>
 </base:WpfUiWindow>

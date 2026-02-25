@@ -8,6 +8,7 @@ using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Voidstrap.Integrations;
+using Voidstrap.UI.Chat;
 using Voidstrap.UI.Elements.Crosshair;
 using Voidstrap.UI.Elements.FPS;
 using Voidstrap.UI.Elements.Overlay;
@@ -99,8 +100,15 @@ namespace Voidstrap.UI.Elements.ContextMenu
         public MenuContainer(Watcher watcher)
         {
             InitializeComponent();
+            var vm = new MenuContainerViewModel();
+            DataContext = vm;
+
+            if (this.ContextMenu != null)
+                this.ContextMenu.DataContext = vm;
+
             StartPlayTimeTimer();
             _watcher = watcher;
+            DataContext = new MenuContainerViewModel();
 
             closestServerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
             closestServerTimer.Tick += async (_, _) =>
@@ -110,16 +118,14 @@ namespace Voidstrap.UI.Elements.ContextMenu
             };
             closestServerTimer.Start();
 
-
             if (_activityWatcher is not null)
             {
                 _activityWatcher.OnLogOpen += ActivityWatcher_OnLogOpen;
                 _activityWatcher.OnGameJoin += ActivityWatcher_OnGameJoin;
                 _activityWatcher.OnGameLeave += ActivityWatcher_OnGameLeave;
 
-                if (!App.Settings.Prop.UseDisableAppPatch)
+                if (!App.Settings.Prop.UseDisableAppPatch) // why the fuck was there 2 of them my bitch ass
                     GameHistoryMenuItem.Visibility = Visibility.Visible;
-                if (!App.Settings.Prop.UseDisableAppPatch)
                     MusicMenuItem.Visibility = Visibility.Visible;
             }
 
@@ -403,7 +409,7 @@ namespace Voidstrap.UI.Elements.ContextMenu
                 });
             }
 
-            if (App.Settings.Prop.FPSCounter || App.Settings.Prop.CurrentTimeDisplay || App.Settings.Prop.ServerPingCounter || App.Settings.Prop.ShowServerDetailsUI)
+            if (App.Settings.Prop.OverlaysEnabled)
             {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -439,6 +445,11 @@ namespace Voidstrap.UI.Elements.ContextMenu
                 {
                     OutputConsoleMenuItem.Visibility = Visibility.Visible;
                     ChatLogsMenuItem.Visibility = Visibility.Visible;
+                }
+
+                if (App.Settings.Prop.OverlaysEnabled)
+                {
+                    BrightnessTrackerLog.Visibility = Visibility.Visible;
                 }
             });
 
@@ -491,6 +502,11 @@ namespace Voidstrap.UI.Elements.ContextMenu
 
                     _ChatLogs?.Close();
                     _OutputConsole?.Close();
+                }
+
+                if (App.Settings.Prop.OverlaysEnabled)
+                {
+                    BrightnessTrackerLog.Visibility = Visibility.Collapsed; // FAKIN OVERLAYSSSSSSSSS GRAGH FUCK FUCK FUCK FUCK
                 }
 
                 _serverInformationWindow?.Close();

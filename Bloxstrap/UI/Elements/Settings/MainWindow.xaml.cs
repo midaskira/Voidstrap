@@ -13,6 +13,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Voidstrap.Integrations;
@@ -46,9 +47,22 @@ namespace Voidstrap.UI.Elements.Settings
         private Vector _targetOffset;
         private double _currentRotation;
         private double _targetRotation;
+        private DispatcherTimer _searchDebounceTimer;
+        private List<TextBlock> _allTextBlocksCache = new List<TextBlock>();
+        private Page _lastPage = null;
         private const double MaxOffset = 0.04;
         private const double MaxRotation = 5.0;
         private const double FollowSpeed = 0.035;
+
+        private readonly List<Type> _pagesToHideSearchBox = new List<Type> // idfk my lazy bum ass didnt wanna spent 4000hours tranna figure another way for all tis bullshit of work took me 1 day for this shit FAHHHHHHHHHH WSEIEWMIEWOMHGEW
+        {
+        typeof(FastFlagEditorPage),
+        typeof(NewsPage),
+        typeof(NvidiaFFlagEditorPage),
+        typeof(ReleasesPage),
+        typeof(DonoPage),
+        typeof(ServerBrowserPage),
+        };
 
         public MainWindow(bool showAlreadyRunningWarning)
         {
@@ -60,6 +74,8 @@ namespace Voidstrap.UI.Elements.Settings
             _appearanceViewModel = new AppearanceViewModel();
             InitializeBackgroundSettingsWatcher();
             ApplyBackgroundSettings();
+            GlobalSearchBox.TextChanged += GlobalSearchBox_TextChanged;
+            GlobalSearchBox.LostFocus += GlobalSearchBox_LostFocus;
             // shi finna be laggy :sob:
             _visibilityTimer.Interval = TimeSpan.FromSeconds(0.8);
             _visibilityTimer.Tick += (s, e) => UpdateFastFlagEditorVisibility();
@@ -81,9 +97,214 @@ namespace Voidstrap.UI.Elements.Settings
             Loaded += MainWindow_Loaded;
             SizeChanged += MainWindow_SizeChanged;
 
+            RootFrame.Navigated += RootFrame_Navigated;
+
             App.Logger.WriteLine("MainWindow", "Initializing settings window");
             if (showAlreadyRunningWarning)
                 _ = ShowAlreadyRunningSnackbarAsync();
+        }
+
+        private void RootFrame_Navigated(object sender, System.Windows.Navigation.NavigationEventArgs e)
+        {
+            _allTextBlocksCache.Clear();
+            _lastPage = null;
+
+            var currentPage = e.Content;
+            if (currentPage != null && _pagesToHideSearchBox.Contains(currentPage.GetType()))
+            {
+                GlobalSearchBox.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                GlobalSearchBox.Visibility = Visibility.Visible;
+            }
+        }
+
+        //fuck man I dont even understand whats going on in this code dont go asking me 👇
+        private void GlobalSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_searchDebounceTimer == null)
+            {
+                _searchDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+                _searchDebounceTimer.Tick += (s, args) =>
+                {
+                    _searchDebounceTimer.Stop();
+                    PerformSearch(GlobalSearchBox.Text.Trim().ToLower());
+                };
+            }
+
+            _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Start();
+        }
+
+        private void GlobalSearchBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            GlobalSearchBox.Text = "";
+            PerformSearch("");
+        }
+
+        private void PerformSearch(string query)
+        {
+            if (!(RootFrame.Content is Page page)) return;
+
+            if (page != _lastPage)
+            {
+                _allTextBlocksCache.Clear();
+                _lastPage = page;
+            }
+
+            if (!_allTextBlocksCache.Any())
+                CacheAllTextBlocks(page);
+
+            if (string.IsNullOrEmpty(query))
+            {
+                foreach (var tb in _allTextBlocksCache)
+                    tb.Background = Brushes.Transparent;
+                return;
+            }
+
+            var matches = new List<TextBlock>();
+
+            foreach (var tb in _allTextBlocksCache)
+            {
+                if (IsFuzzyMatch(tb.Text, query))
+                {
+                    tb.Background = (SolidColorBrush)SystemParameters.WindowGlassBrush; // fuckass windows accent color
+                    FlashHighlight(tb);
+                    matches.Add(tb);
+                }
+                else
+                {
+                    tb.Background = Brushes.Transparent;
+                }
+            }
+
+            ScrollToClosestMatch(matches);
+        }
+
+        private void CacheAllTextBlocks(Page page)
+        {
+            _allTextBlocksCache.Clear();
+
+            void Recurse(DependencyObject parent)
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+                {
+                    var child = VisualTreeHelper.GetChild(parent, i);
+
+                    if (child is TextBlock textBlock && !string.IsNullOrWhiteSpace(textBlock.Text))
+                        _allTextBlocksCache.Add(textBlock);
+
+                    Recurse(child);
+                }
+            }
+
+            Recurse(page);
+        }
+
+        private void ScrollToClosestMatch(List<TextBlock> matches)
+        {
+            if (!matches.Any()) return;
+
+            foreach (var textBlock in matches)
+            {
+                ScrollViewer scrollViewer = null;
+                DependencyObject parent = textBlock;
+                while (parent != null)
+                {
+                    if (parent is ScrollViewer sv)
+                    {
+                        scrollViewer = sv;
+                        break;
+                    }
+                    parent = VisualTreeHelper.GetParent(parent);
+                }
+
+                if (scrollViewer != null)
+                {
+                    GeneralTransform transform = textBlock.TransformToAncestor(scrollViewer);
+                    Point position = transform.Transform(new Point(0, 0));
+
+                    double viewportHeight = scrollViewer.ViewportHeight;
+                    double elementTop = position.Y;
+                    double elementBottom = elementTop + textBlock.ActualHeight;
+
+                    if (elementBottom < 0 || elementTop > viewportHeight)
+                    {
+                        SmoothScrollTo(scrollViewer, scrollViewer.VerticalOffset + position.Y);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        private void SmoothScrollTo(ScrollViewer scrollViewer, double targetOffset)
+        {
+            double startOffset = scrollViewer.VerticalOffset;
+            double distance = targetOffset - startOffset;
+            int steps = 15;
+            int currentStep = 0;
+
+            DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(15) };
+            timer.Tick += (s, e) =>
+            {
+                currentStep++;
+                double t = (double)currentStep / steps;
+                t = t * t * (3 - 2 * t);
+                scrollViewer.ScrollToVerticalOffset(startOffset + distance * t);
+
+                if (currentStep >= steps)
+                    timer.Stop();
+            };
+            timer.Start();
+        }
+
+        private void FlashHighlight(TextBlock tb)
+        {
+            var originalBrush = tb.Background;
+            DispatcherTimer flashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            flashTimer.Tick += (s, e) =>
+            {
+                flashTimer.Stop();
+                tb.Background = originalBrush;
+            };
+            flashTimer.Start();
+        }
+
+        private static bool IsFuzzyMatch(string text, string query)
+        {
+            text = text.ToLower();
+            query = query.ToLower();
+
+            if (text.Contains(query)) return true;
+
+            int distance = LevenshteinDistance(text, query);
+            int threshold = Math.Max(1, query.Length / 3);
+            return distance <= threshold;
+        }
+
+        private static int LevenshteinDistance(string s, string t)
+        {
+            int n = s.Length;
+            int m = t.Length;
+            int[,] d = new int[n + 1, m + 1];
+
+            for (int i = 0; i <= n; i++) d[i, 0] = i;
+            for (int j = 0; j <= m; j++) d[0, j] = j;
+
+            for (int i = 1; i <= n; i++)
+            {
+                for (int j = 1; j <= m; j++)
+                {
+                    int cost = s[i - 1] == t[j - 1] ? 0 : 1;
+                    d[i, j] = Math.Min(
+                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                        d[i - 1, j - 1] + cost
+                    );
+                }
+            }
+            return d[n, m];
         }
 
         private void AnimateOpacity(UIElement element, double toOpacity, double durationSeconds = 0.5)
@@ -412,8 +633,7 @@ namespace Voidstrap.UI.Elements.Settings
 
             _discordClient.SetPresence(new DiscordRPC.RichPresence()
             {
-                Details = $"Viewing {pageName}",
-                State = "Voidstrap",
+                Details = $"Viewing {pageName}", // the fuck was there state I just relized that it already displays fucking voidstrap THE FUCK
                 Timestamps = DiscordRPC.Timestamps.Now,
                 Buttons = new[]
                 {
@@ -424,7 +644,7 @@ namespace Voidstrap.UI.Elements.Settings
             },
             new DiscordRPC.Button
             {
-                Label = "Repo",
+                Label = "Github", // sick of this shit ❤️‍🔥 why the fuck I put fire emoji it came out as a heart + fire fah
                 Url = "https://github.com/voidstrap/Voidstrap"
             }
         }

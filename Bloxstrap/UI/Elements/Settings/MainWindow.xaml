@@ -31,6 +31,7 @@
     mc:Ignorable="d">
 
     <base:WpfUiWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <BitmapImage x:Key="AppIconImage"
                      UriSource="pack://application:,,,/Voidstrap.ico" />
         <media:CubicEase x:Key="SmoothEaseOut" EasingMode="EaseOut" />
@@ -376,6 +377,16 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
+                <ui:TextBox x:Name="GlobalSearchBox"
+            Grid.Row="0"
+            Margin="0,0,28,0"
+            HorizontalAlignment="Right"
+            PlaceholderText="Search..."
+            TextChanged="GlobalSearchBox_TextChanged"
+            ClearButtonEnabled="True"
+            Icon="Search24"
+            Visibility="{Binding ShowSearchBox, Converter={StaticResource BoolToVisibilityConverter}}" />
+
                 <ui:Breadcrumb Grid.Row="0"
                                Margin="0,0,0,5"
                                Navigation="{Binding ElementName=RootNavigation}" />
