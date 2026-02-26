@@ -10,7 +10,7 @@ namespace Voidstrap.UI.ViewModels.Settings
 {
     public class MainWindowViewModel : NotifyPropertyChangedViewModel
     {
-
+        public string AppVersion => System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(); // fakin version
         public ICommand OpenAboutCommand => new RelayCommand(OpenAbout);
 
         public ICommand SaveSettingsCommand => new RelayCommand(SaveSettings);

@@ -302,11 +302,6 @@
                     </DataGridTemplateColumn>
 
                     <DataGridTextColumn
-                Width="56"
-                Binding="{Binding Index}"
-                Header="Index" IsReadOnly="True"/>
-
-                    <DataGridTextColumn
                 Width="2*"
                 Binding="{Binding Name}"
                 Header="{x:Static resources:Strings.Common_Name}" />

@@ -27,30 +27,29 @@
         <TabItem Header="General">
             <StackPanel Margin="10">
 
-                <controls:OptionControl 
+                    <ui:InfoBar
+                    Margin="0,0,0,-1"
+                    Padding="4"
+                    IsClosable="True"
+                    IsOpen="True"
+                    Message="Features here are highly customizable but intended for advanced users."
+                    Severity="Informational" />
+
+                    <controls:OptionControl 
                     x:Name="ConfirmLaunchOption"
                     Header="{x:Static resources:Strings.Menu_Behaviour_ConfirmLaunches_Title}" 
                     Description="{x:Static resources:Strings.Menu_Behaviour_ConfirmLaunches_Description}">
                     <ui:ToggleSwitch IsChecked="{Binding ConfirmLaunches, Mode=TwoWay}" />
                 </controls:OptionControl>
 
-                <controls:OptionControl
+                    <controls:OptionControl
                     Header="{x:Static resources:Strings.Menu_Behaviour_ForceRobloxLanguage_Title}"
                     Description="{x:Static resources:Strings.Menu_Behaviour_ForceRobloxLanguage_Description}"
                     HelpLink="https://github.com/BloxstrapLabs/Bloxstrap/wiki/Information-on-Roblox-app-localisation">
-                    <ui:ToggleSwitch IsChecked="{Binding ForceRobloxLanguage, Mode=TwoWay}" />
-                </controls:OptionControl>
+                        <ui:ToggleSwitch IsChecked="{Binding ForceRobloxLanguage, Mode=TwoWay}" />
+                    </controls:OptionControl>
 
-                <ui:InfoBar
-                    x:Name="AnselBanner"
-                    Margin="0,5,0,-5"
-                    Padding="4"
-                    IsClosable="True"
-                    IsOpen="False"
-                    Message="{x:Static resources:Strings.Menu_Behaviour_AnselBanner}"
-                    Severity="Informational" />
-
-                <controls:OptionControl 
+                    <controls:OptionControl 
                     x:Name="AllowMultipleInstancesOption"
                     Header="{x:Static resources:Strings.Menu_Behaviour_MultiInstances_Title}" 
                     Description="{x:Static resources:Strings.Menu_Behaviour_MultiInstances_Description}">
@@ -154,6 +153,7 @@
                 </ui:CardExpander>
             </StackPanel>
         </TabItem>
+        
         </TabControl>
     </StackPanel>
 </ui:UiPage>

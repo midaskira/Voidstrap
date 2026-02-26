@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Input;
 using System.Xml.Linq;
@@ -21,11 +23,18 @@ namespace Voidstrap.UI.ViewModels.Settings
         public ICommand RPCWindowCommand { get; }
         public ICommand AccountWindowCommand { get; }
 
+        private readonly string _appStoragePath =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        @"Roblox\LocalStorage\appStorage.json");
+        private JsonObject _jsonData;
         private readonly ActivityWatcher _watcher;
 
         public IntegrationsViewModel(ActivityWatcher watcher)
         {
             _watcher = watcher;
+
+            LoadSettings();
+
             OpenHistoryWindowCommand = new RelayCommand(OpenHistoryWindow);
             MusicWindowCommand = new RelayCommand(MusicPlayerWindow);
             ChatModeWindowCommand = new RelayCommand(ChatModeWindow);
@@ -44,6 +53,71 @@ namespace Voidstrap.UI.ViewModels.Settings
 
             OnPropertyChanged(nameof(SelectedCustomIntegrationIndex));
             OnPropertyChanged(nameof(IsCustomIntegrationSelected));
+        }
+
+        private bool _robloxSystemTray;
+        public bool RobloxSystemTray
+        {
+            get => _robloxSystemTray;
+            set
+            {
+                if (_robloxSystemTray != value)
+                {
+                    _robloxSystemTray = value;
+                    OnPropertyChanged(nameof(RobloxSystemTray));
+                    SaveSetting("MinimizeToTray", value);
+                }
+            }
+        }
+
+        private bool _launchStartup;
+        public bool LaunchStartup
+        {
+            get => _launchStartup;
+            set
+            {
+                if (_launchStartup != value)
+                {
+                    _launchStartup = value;
+                    OnPropertyChanged(nameof(LaunchStartup));
+                    SaveSetting("LaunchAtStartup", value);
+                }
+            }
+        }
+
+        private void LoadSettings()
+        {
+            if (!File.Exists(_appStoragePath))
+                return;
+
+            var jsonText = File.ReadAllText(_appStoragePath);
+            _jsonData = JsonNode.Parse(jsonText)?.AsObject();
+
+            if (_jsonData == null)
+                return;
+
+            RobloxSystemTray = GetBool("MinimizeToTray");
+            LaunchStartup = GetBool("LaunchAtStartup");
+        }
+
+        private bool GetBool(string key)
+        {
+            if (_jsonData[key] == null)
+                return false;
+
+            return bool.TryParse(_jsonData[key]?.ToString(), out bool result) && result;
+        }
+
+        private void SaveSetting(string key, bool value)
+        {
+            if (_jsonData == null)
+                _jsonData = new JsonObject();
+
+            _jsonData[key] = value.ToString().ToLower();
+
+            Directory.CreateDirectory(Path.GetDirectoryName(_appStoragePath)!);
+            File.WriteAllText(_appStoragePath,
+                _jsonData.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         }
 
         private void OpenHistoryWindow()
@@ -279,5 +353,8 @@ namespace Voidstrap.UI.ViewModels.Settings
         public CustomIntegration? SelectedCustomIntegration { get; set; }
         public int SelectedCustomIntegrationIndex { get; set; }
         public bool IsCustomIntegrationSelected => SelectedCustomIntegration is not null;
+        public event PropertyChangedEventHandler PropertyChanged;
+        private void OnPropertyChanged(string name)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
